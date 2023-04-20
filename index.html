@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Domain Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Domain Checker</h1>
+        <form id="domain-form">
+            <input type="text" id="domain-input" name="domain" placeholder="Enter a domain name">
+            <button type="submit">Search</button>
+        </form>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const domainForm = document.getElementById("domain-form");
+        const resultsDiv = document.getElementById("results");
+
+        domainForm.addEventListener("submit", async event => {
+            event.preventDefault();
+            const domain = document.getElementById("domain-input").value;
+
+            // Show spinner
+            resultsDiv.innerHTML = `<div class="spinner"></div>`;
+
+            // Make first API call
+            const response1 = await fetch("https://ordinals-api.libre.rocks/domain/find", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    query: domain,
+                    exact: true
+                })
+            });
+            const data1 = await response1.json();
+
+            // Make second API call
+            const response2 = await fetch(`https://api.sats.id/names/${domain}`);
+            const data2 = await response2.json();
+
+            // Find lowest inscriptionNumber from data1
+            const lowestInscriptionNumber = data1.reduce((lowest, current) => {
+                if (current.inscriptionNumber && (lowest === null || Number(current.inscriptionNumber) < Number(lowest))) {
+                    return current.inscriptionNumber;
+                } else {
+                    return lowest;
+                }
+            }, null);
+
+            // Check if lowest inscriptionNumber matches inscriptionIndex from data2
+            let resultMessage;
+            if (lowestInscriptionNumber === null) {
+                resultMessage = `The domain <b>${domain}</b> is available for registration at <a href="https://ordcheap.com" target="_blank">ordcheap.com</a> or <a href="https://ordinalswallet.com" target="_blank">ordinalswallet.com</a>.`;
+            } else if (Number(lowestInscriptionNumber) === Number(data2.inscriptionIndex)) {
+                resultMessage = `The lowest inscription number from ordcheap API for <b>${domain}</b> is <a href="https://bnode.libre.org/reverse/${lowestInscriptionNumber}" target="_blank"><b>${lowestInscriptionNumber}</b></a>, which matches the inscription index from <b>api.sats.id</b> of <b>${data2.inscriptionIndex}</b>.`;
+            } else {
+                resultMessage = `The lowest inscription number from ordcheap API for <b>${domain}</b> is <a href="https://bnode.libre.org/reverse/${lowestInscriptionNumber}" target="_blank"><b>${lowestInscriptionNumber}</b></a>, but it does not match the inscription index from <b>api.sats.id</b> of <b>${data2.inscriptionIndex}</b>.`;
+            }
+
+            // Show results
+            resultsDiv.innerHTML = `
+				<div class="results">
+					<p>${resultMessage}</p>
+				</div>
+			`;
+        });
+    </script>
+</body>
+
+</html>
